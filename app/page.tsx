@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// opcional: só mantenha se for usar de fato
+// import autoTable from "jspdf-autotable";
 
 // ====== TEMA (preto/vermelho/branco) ======
 const BRAND = {
@@ -15,8 +16,8 @@ const BRAND = {
 };
 
 // ====== IMAGENS ======
-const LOGO_PATH = "/logo.jpg";        // sua logo (em /public)
-const WATERMARK_PATH = "/logo.jpg";   // opcional (pode usar a mesma)
+const LOGO_PATH = "/logo.jpg";      // sua logo (em /public)
+const WATERMARK_PATH = "/logo.jpg"; // opcional (pode usar a mesma)
 
 // ====== TÍTULO DO PDF ======
 const HEADER_TITLE = "FICHA DE INSCRIÇÃO FORJADOS MC";
@@ -309,13 +310,17 @@ export default function ExcelToPdfPage() {
       }
     }
 
-    // Pairs (normais x emergência)
-    const allPairs: Array<[string, string]> = cleanHeaders
-      .map((h) => [String(h || ""), String(row[h] ?? "").trim()])
+    // ===== Pares (normais x emergência) — nomes únicos e tipagem de tupla
+    const pairsAll: [string, string][] = cleanHeaders
+      .map((h): [string, string] => {
+        const key = String(h ?? "");
+        const val = String((row as Record<string, unknown>)[key] ?? "").trim();
+        return [key, val];
+      })
       .filter(([, v]) => v !== "");
 
-    const normalPairs = allPairs.filter(([k]) => !/emerg/i.test(k));
-    const emergencyPairs = allPairs.filter(([k]) => /emerg/i.test(k));
+    const pairsNormal: [string, string][] = pairsAll.filter(([k]) => !/emerg/i.test(k));
+    const pairsEmergency: [string, string][] = pairsAll.filter(([k]) => /emerg/i.test(k));
 
     // Helpers
     const labelColW = 200;
@@ -350,38 +355,39 @@ export default function ExcelToPdfPage() {
     // Calcular altura total p/ centralizar
     const fakeDoc = new jsPDF({ unit: "pt", format: "a4" });
     let fakeY = 0;
-    for (const [label, value] of normalPairs) {
+    for (const [label, value] of pairsNormal) {
       const lbl = fakeDoc.splitTextToSize(`${label}:`, labelColW);
       const val = fakeDoc.splitTextToSize(value, valueColW);
       const lineGap = 11 + 8;
       fakeY += lineGap * Math.max(lbl.length, val.length) + 6;
     }
-    if (emergencyPairs.length > 0) {
+    if (pairsEmergency.length > 0) {
       fakeY += 40;
-      for (const [label, value] of emergencyPairs) {
+      for (const [label, value] of pairsEmergency) {
         const lbl = fakeDoc.splitTextToSize(`${label}:`, labelColW);
         const val = fakeDoc.splitTextToSize(value, valueColW);
         const lineGap = 11 + 8;
         fakeY += lineGap * Math.max(lbl.length, val.length) + 6;
       }
     }
-    const availableH = pageH - headerH - bottomMargin - 180;
+    const headerHOffset = 40;
+    const availableH = pageH - headerH - bottomMargin - (headerHOffset + 140);
     const startOffset = Math.max((availableH - fakeY) / 2, 0);
 
     // Render
-    let y = headerH + 40 + startOffset;
-    for (const [label, value] of normalPairs) {
+    let y = headerH + headerHOffset + startOffset;
+    for (const [label, value] of pairsNormal) {
       y = renderKV(label, value, y, 11);
     }
 
-    if (emergencyPairs.length > 0) {
+    if (pairsEmergency.length > 0) {
       y += 18;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(12);
       doc.setTextColor(...BRAND.red);
       doc.text("CONTATOS DE EMERGÊNCIA", marginX, y);
       y += 14;
-      for (const [label, value] of emergencyPairs) {
+      for (const [label, value] of pairsEmergency) {
         y = renderKV(label, value, y, 11);
       }
     }
