@@ -345,7 +345,7 @@ export default function ExcelToPdfPage() {
       const nextY = y + lineGap * linesUsed;
 
       // linha separadora
-      doc.setDrawColor(...(sepColor as any));
+      doc.setDrawColor(sepColor[0], sepColor[1], sepColor[2]);
       doc.setLineWidth(0.3);
       doc.line(marginX, nextY + 2, pageW - marginX, nextY + 2);
 
